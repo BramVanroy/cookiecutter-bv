@@ -9,8 +9,8 @@ readme = "README.md"
 requires-python = ">={{cookiecutter.python_requires}}"
 {% if cookiecutter.license != "Proprietary" -%}
 license = "{{cookiecutter.license}}"
-license-files = ["LICENSE"]
 {% endif -%}
+license-files = ["LICENSE"]
 dependencies = []
 
 [project.urls]

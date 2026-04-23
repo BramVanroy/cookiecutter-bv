@@ -4,7 +4,7 @@
 [![codecov](https://codecov.io/gh/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}}/branch/main/graph/badge.svg)](https://codecov.io/gh/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}})
 [![PyPI version](https://badge.fury.io/py/{{cookiecutter.github_repo_name}}.svg)](https://badge.fury.io/py/{{cookiecutter.github_repo_name}})
 [![Python versions](https://img.shields.io/pypi/pyversions/{{cookiecutter.github_repo_name}}.svg)](https://pypi.org/project/{{cookiecutter.github_repo_name}}/)
-[![License: {{cookiecutter.license}}](https://img.shields.io/badge/License-{{cookiecutter.license}}-blue.svg)](LICENSE)
+[![License](https://img.shields.io/github/license/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}})](LICENSE)
 
 {{cookiecutter.project_description}}
 
