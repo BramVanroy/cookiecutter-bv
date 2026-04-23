@@ -52,8 +52,6 @@ print(f"\n✔  Project '{PROJECT_NAME}' created successfully.")
 
 print("\nNext steps:")
 print(f"\n  cd {GITHUB_REPO_NAME}")
-print("  uv sync")
-print("  uv run pre-commit install")
 
 if not git_ok:
     print("\n  # Initialize git (skipped above):")
@@ -64,4 +62,7 @@ print(f"  gh repo create {GITHUB_REPO_NAME} --public --source=. --remote=origin 
 print("\n  # Or manually:")
 print(f"  git remote add origin git@github.com:{GITHUB_USERNAME}/{GITHUB_REPO_NAME}.git")
 print("  git push -u origin main")
+
+print("  uv sync")
+print("  uv run pre-commit install")
 print()

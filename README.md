@@ -20,7 +20,9 @@ A Cookiecutter template for modern Python projects.
 uvx cookiecutter https://github.com/BramVanroy/cookiecutter-bv
 ```
 
-Extra context can be passed as `key=value` pairs to pre-fill specific prompts:
+By calling the `uvx` command above, an interactive installation will start. But you can
+override or set variables already during installation. Extra context can be passed as
+`key=value` pairs to pre-fill specific prompts:
 
 ```bash
 uvx cookiecutter https://github.com/BramVanroy/cookiecutter-bv project_name="My Awesome Library"
