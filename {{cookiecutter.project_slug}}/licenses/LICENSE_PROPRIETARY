@@ -1,0 +1,6 @@
+Copyright (c) {% now 'utc', '%Y' %} {{cookiecutter.author_name}}. All rights reserved.
+
+This software and associated documentation files (the "Software") are proprietary
+and confidential. Unauthorized copying, distribution, modification, public display,
+or public performance of this Software, in whole or in part, via any medium is
+strictly prohibited without the express written permission of the copyright owner.

@@ -1,0 +1,85 @@
+[project]
+name = "{{cookiecutter.github_repo_name}}"
+dynamic = ["version"]
+description = "{{cookiecutter.project_description}}"
+authors = [
+    {name = "{{cookiecutter.author_name}}", email = "{{cookiecutter.author_email}}"},
+]
+readme = "README.md"
+requires-python = ">={{cookiecutter.python_requires}}"
+{% if cookiecutter.license != "Proprietary" -%}
+license = {text = "{{cookiecutter.license}}"}
+{% endif -%}
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}}"
+Documentation = "https://{{cookiecutter.github_username}}.github.io/{{cookiecutter.github_repo_name}}"
+Repository = "https://github.com/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}}"
+Issues = "https://github.com/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}}/issues"
+Changelog = "https://github.com/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}}/releases"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/{{cookiecutter.project_slug}}/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/{{cookiecutter.project_slug}}"]
+
+[dependency-groups]
+dev = [
+    "mkdocs-material>=9.6.0",
+    "mkdocstrings[python]>=0.29.0",
+    "mypy>=1.15.0",
+    "pre-commit>=4.2.0",
+    "pytest>=8.3.0",
+    "pytest-cov>=6.1.0",
+    "ruff>=0.8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src"]
+addopts = [
+    "--doctest-modules",
+    "--import-mode=importlib",
+    "--cov={{cookiecutter.project_slug}}",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+]
+
+[tool.ruff]
+target-version = "py{{cookiecutter.python_requires | replace('.', '')}}"
+line-length = 79
+fix = true
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM", "RUF", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"src/**/_version.py" = ["D", "F"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "{{cookiecutter.python_requires}}"
+files = ["src/{{cookiecutter.project_slug}}"]
+strict = true
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
+exclude = ["_version\\.py"]
