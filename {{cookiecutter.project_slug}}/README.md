@@ -5,6 +5,8 @@
 [![PyPI version](https://badge.fury.io/py/{{cookiecutter.github_repo_name}}.svg)](https://badge.fury.io/py/{{cookiecutter.github_repo_name}})
 [![Python versions](https://img.shields.io/pypi/pyversions/{{cookiecutter.github_repo_name}}.svg)](https://pypi.org/project/{{cookiecutter.github_repo_name}}/)
 [![License](https://img.shields.io/github/license/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}})](LICENSE)
+![GitHub tag](https://img.shields.io/github/v/tag/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}})
+
 
 {{cookiecutter.project_description}}
 
