@@ -13,10 +13,10 @@ if not re.match(r"^[a-z][a-z0-9_]+$", PROJECT_SLUG):
         "Must start with a lowercase letter and contain only lowercase letters, digits, and underscores."
     )
 
-if not re.match(r"^[a-z][a-z0-9-]+$", GITHUB_REPO_NAME):
+if not re.match(r"^[a-z][a-z0-9-_]+$", GITHUB_REPO_NAME):
     raise ValueError(
         f"Invalid github_repo_name '{GITHUB_REPO_NAME}'. "
-        "Must start with a lowercase letter and contain only lowercase letters, digits, and hyphens."
+        "Must start with a lowercase letter and contain only lowercase letters, digits, underscores, and hyphens."
     )
 
 if "@" not in AUTHOR_EMAIL:
