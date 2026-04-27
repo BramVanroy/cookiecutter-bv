@@ -6,28 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel any in-progress run for the same branch/PR when a new push arrives.
+concurrency:
+  group: {% raw %}${{ github.workflow }}-${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
 jobs:
   quality:
     name: Code quality
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
-
-      - name: Run mypy
-        run: uv run mypy
-
-  test:
-    name: Tests (Python {{cookiecutter.python_requires}})
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,12 +26,40 @@ jobs:
           python-version: "{{cookiecutter.python_requires}}"
 
       - name: Install dependencies
-        run: uv sync --frozen
+        run: uv sync --group dev
+
+      - name: Run pre-commit
+        if: hashFiles('.pre-commit-config.yaml') != ''
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+  test:
+    name: {% raw %}Tests (Python ${{ matrix.python-version }}){% endraw %}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        {% set all_python = ["3.10", "3.11", "3.12", "3.13", "3.14"] -%}
+        {% set min_idx = all_python.index(cookiecutter.python_requires) -%}
+        python-version: {{ all_python[min_idx:] | tojson }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: {% raw %}${{ matrix.python-version }}{% endraw %}
+
+      - name: Install dependencies
+        run: uv sync --group dev
 
       - name: Run tests
-        run: uv run pytest
+        if: hashFiles('tests/**') != ''
+        run: make test
 
       - name: Upload coverage
+        if: hashFiles('coverage.xml') != ''
         uses: codecov/codecov-action@v5
         with:
           token: {% raw %}${{ secrets.CODECOV_TOKEN }}{% endraw %}

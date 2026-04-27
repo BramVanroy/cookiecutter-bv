@@ -7,9 +7,6 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">={{cookiecutter.python_requires}}"
-{% if cookiecutter.license != "Proprietary" -%}
-license = "{{cookiecutter.license}}"
-{% endif -%}
 license-files = ["LICENSE"]
 dependencies = []
 
@@ -32,9 +29,12 @@ fallback-version = "0.0.0"
 packages = ["src/{{cookiecutter.project_slug}}"]
 
 [dependency-groups]
-dev = [
+docs = [
     "mkdocs-material>=9.6.0",
     "mkdocstrings[python]>=0.29.0",
+]
+dev = [
+    {include-group = "docs"},
     "mypy>=1.15.0",
     "pre-commit>=4.2.0",
     "pytest>=8.3.0",
@@ -81,4 +81,3 @@ check_untyped_defs = true
 warn_return_any = true
 warn_unused_ignores = true
 show_error_codes = true
-exclude = ["_version\\.py"]

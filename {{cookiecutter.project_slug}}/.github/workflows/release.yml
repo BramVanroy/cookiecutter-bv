@@ -1,86 +1,26 @@
-{%- set all_versions = ["3.10", "3.11", "3.12", "3.13"] -%}
-{%- set ns = namespace(versions=[]) -%}
-{%- for v in all_versions -%}
-{%- if v >= cookiecutter.python_requires -%}
-{%- set ns.versions = ns.versions + [v] -%}
-{%- endif -%}
-{%- endfor -%}
-name: Release
+name: Publish to PyPI
 
 on:
   release:
     types: [published]
 
 jobs:
-  compatibility-tests:
-    name: {% raw %}Python ${{ matrix.python-version }}{% endraw %}
-
+  pypi-publish:
+    name: Build and Publish
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: {{ ns.versions | tojson }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-          python-version: {% raw %}${{ matrix.python-version }}{% endraw %}
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Run tests
-        run: uv run pytest
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v5
-        with:
-          token: {% raw %}${{ secrets.CODECOV_TOKEN }}{% endraw %}
-          flags: {% raw %}python${{ matrix.python-version }}{% endraw %}
-          files: coverage.xml
-
-  deploy-docs:
-    name: Deploy documentation
-    runs-on: ubuntu-latest
-    needs: compatibility-tests
+    
+    # Required environment for PyPI Trusted Publishing
+    environment: release
+    
     permissions:
-      contents: write
+      id-token: write  
+      contents: read
+      
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Deploy docs to GitHub Pages
-        run: uv run mkdocs gh-deploy --force
-
-  publish:
-    name: Publish to PyPI
-    runs-on: ubuntu-latest
-    needs: compatibility-tests
-    environment:
-      name: pypi
-      url: {% raw %}https://pypi.org/project/${{ github.event.repository.name }}{% endraw %}
-
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: astral-sh/setup-uv@v5
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
@@ -88,4 +28,5 @@ jobs:
         run: uv build
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        run: uv publish
+    

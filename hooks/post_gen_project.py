@@ -3,11 +3,13 @@
 import os
 import shutil
 import subprocess
+from pathlib import Path
 
 LICENSE = "{{cookiecutter.license}}"
 PROJECT_NAME = "{{cookiecutter.project_name}}"
 GITHUB_USERNAME = "{{cookiecutter.github_username}}"
 GITHUB_REPO_NAME = "{{cookiecutter.github_repo_name}}"
+PYTHON_REQUIRES = "{{cookiecutter.python_requires}}"
 
 # ── License ──────────────────────────────────────────────────────────────────
 
@@ -20,6 +22,49 @@ LICENSE_FILES = {
 
 shutil.copy(os.path.join(os.getcwd(), LICENSE_FILES[LICENSE]), "LICENSE")
 shutil.rmtree(os.path.join(os.getcwd(), "licenses"))
+
+
+# ── pyproject.toml: inject license field and classifiers ─────────────────────
+
+_ALL_PYTHON = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+_pyproject = Path("pyproject.toml")
+_content = _pyproject.read_text(encoding="utf-8")
+
+if LICENSE != "Proprietary":
+    _content = _content.replace(
+        'license-files = ["LICENSE"]',
+        f'license = "{LICENSE}"\nlicense-files = ["LICENSE"]',
+    )
+
+_min_idx = _ALL_PYTHON.index(PYTHON_REQUIRES)
+_classifier_lines = "\n".join(
+    f'    "Programming Language :: Python :: {v}",'
+    for v in _ALL_PYTHON[_min_idx:]
+)
+_classifier_lines += '\n    "Programming Language :: Python :: 3 :: Only",'
+_classifiers = f"classifiers = [\n{_classifier_lines}\n]"
+
+_content = _content.replace(
+    'license-files = ["LICENSE"]',
+    f'license-files = ["LICENSE"]\n{_classifiers}',
+)
+
+_pyproject.write_text(_content, encoding="utf-8")
+
+
+# ── Jinja overrides: substitute GitHub placeholders ──────────────────────────
+
+_JINJA_OVERRIDES = [
+    Path("docs/overrides/python/material/class.html.jinja"),
+    Path("docs/overrides/python/material/function.html.jinja"),
+]
+
+for _override in _JINJA_OVERRIDES:
+    _text = _override.read_text(encoding="utf-8")
+    _text = _text.replace("__GITHUB_USERNAME__", GITHUB_USERNAME)
+    _text = _text.replace("__GITHUB_REPO_NAME__", GITHUB_REPO_NAME)
+    _override.write_text(_text, encoding="utf-8")
 
 
 # ── Git ───────────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 site_name: {{cookiecutter.project_name}}
 site_description: {{cookiecutter.project_description}}
 site_url: https://{{cookiecutter.github_username}}.github.io/{{cookiecutter.github_repo_name}}/
+
 repo_url: https://github.com/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}}
 repo_name: {{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}}
 edit_uri: edit/main/docs/
@@ -31,9 +32,13 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
 
+hooks:
+  - docs/hooks.py
+
 plugins:
   - search
   - mkdocstrings:
+      custom_templates: docs/overrides
       handlers:
         python:
           paths: [src]
@@ -42,6 +47,7 @@ plugins:
             show_source: true
             show_root_heading: true
             show_if_no_docstring: false
+            show_symbol_type_heading: true
             inherited_members: true
             members_order: source
             separate_signature: true
@@ -49,6 +55,8 @@ plugins:
             merge_init_into_class: true
             docstring_section_style: table
             show_docstring_examples: true
+            show_signature_annotations: true
+            separate_signature: true
 
 nav:
   - Home: index.md
@@ -60,11 +68,10 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path: .
   - pymdownx.superfences
   - admonition
   - pymdownx.details
-  - attr_list
-  - md_in_html
   - toc:
       permalink: true

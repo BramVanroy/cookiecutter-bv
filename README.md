@@ -11,7 +11,8 @@ A Cookiecutter template for modern Python projects.
 - **[pytest](https://docs.pytest.org/)** with doctest support and [codecov](https://codecov.io/) integration
 - **[pre-commit](https://pre-commit.com/)** hooks for ruff, mypy, and standard checks
 - **[MkDocs Material](https://squidfunk.github.io/mkdocs-material/)** documentation with `mkdocstrings`
-- **GitHub Actions**: CI on every push/PR, compatibility testing + docs deploy + PyPI publish on release
+- **Makefile** with targets for quality checks, type checking, testing (with coverage), and docs preview; `make test` is shared between local dev and CI
+- **GitHub Actions**: CI matrix across all supported Python versions (3.10–3.14) on every push/PR, docs deploy + PyPI publish on release
 - **`src/` layout** with `scripts/` and `tests/` directories
 
 ## Usage
@@ -35,7 +36,7 @@ Use `--output-dir` to avoid generating the project inside the template folder it
 
 ```bash
 # Interactive — prompts shown with defaults pre-filled
-uvx cookiecutter . --output-dir /tmp/cc-test
+uvx cookiecutter . --output-dir example-project
 
 # Non-interactive — accept all defaults immediately (useful for a quick sanity check)
 uvx cookiecutter . --no-input --output-dir /tmp/cc-test
@@ -96,6 +97,7 @@ The hook automatically:
 ├── tests/                # pytest test suite
 ├── scripts/              # one-off helper scripts (not part of the package)
 ├── docs/                 # MkDocs source
+├── Makefile              # dev workflow commands (also used by CI)
 └── pyproject.toml
 ```
 
@@ -184,6 +186,25 @@ Coverage is measured by **[pytest-cov](https://pytest-cov.readthedocs.io/)** and
 reported both to the terminal and to `coverage.xml` for upload to
 **[codecov](https://codecov.io/)**.
 
+### Developer workflow — Makefile
+
+A `Makefile` provides short commands for the most common dev tasks:
+
+| Target | What it does |
+| --- | --- |
+| `make quality` | `ruff check` + `ruff format --check` — read-only lint/format check |
+| `make style` | `ruff check --fix` + `ruff format` — fix lint and formatting in-place |
+| `make typecheck` | `mypy` against `src/`, `tests/`, and `scripts/` |
+| `make test` | `pytest` with terminal coverage summary **and** `coverage.xml` for Codecov |
+| `make docs` | `mkdocs serve` — live-preview the docs locally |
+
+`make test` is the **single source of truth** for the pytest invocation. The CI `test`
+job calls `make test` directly, so coverage flags only ever need changing in one place.
+
+The `quality` CI job does _not_ use the Makefile — it runs
+`pre-commit run --all-files`, which covers a broader set of checks (YAML/TOML
+validation, whitespace, ruff, mypy) and mirrors what the git commit hook enforces.
+
 ### pre-commit hooks
 
 **[pre-commit](https://pre-commit.com/)** runs the following hooks on every commit:
@@ -197,9 +218,13 @@ reported both to the terminal and to `coverage.xml` for upload to
 | `check-yaml` | Validates YAML syntax |
 | `end-of-file-fixer` | Ensures every file ends with a single newline |
 | `trailing-whitespace` | Strips trailing whitespace |
-| `ruff` (lint) | Runs `ruff check --fix`; fails if unfixable violations remain |
-| `ruff-format` | Runs `ruff format` |
+| `ruff-lint` (local) | Runs `uv run ruff check --fix`; fails if unfixable violations remain |
+| `ruff-format` (local) | Runs `uv run ruff format` |
 | `mypy` (local) | Runs `uv run mypy` against the full project |
+
+All three tool hooks are **local** — they use the ruff and mypy versions installed by
+uv, so there is no separate hook environment to download and no risk of version drift
+between your dev dependencies and the hooks.
 
 Install once per clone with `uv run pre-commit install`.
 
@@ -211,7 +236,8 @@ The **[mkdocstrings](https://mkdocstrings.github.io/)** plugin auto-generates AP
 reference pages directly from the source docstrings (Google style). The
 `docs/api.md` page uses the `:::` directive to render the full package API.
 
-Build and preview locally:
+MkDocs packages live in the `docs` dependency group. `uv sync --group dev`
+already includes them (the `dev` group includes `docs`). Build and preview locally:
 
 ```bash
 uv run mkdocs serve
@@ -219,27 +245,33 @@ uv run mkdocs serve
 
 ### GitHub Actions
 
-Two workflows are included.
+Three workflows are included.
 
 #### `ci.yml` — runs on every push to `main` and on every pull request
 
 | Job | What it does |
 | --- | --- |
-| `quality` | Installs dependencies, runs all pre-commit hooks (ruff lint, ruff format, mypy, and the standard file checks) |
-| `test` | Runs `pytest` (unit tests + doctests + coverage) on the project's minimum Python version; uploads `coverage.xml` to Codecov |
+| `quality` | Installs dev dependencies, then runs `pre-commit run --all-files` (skipped if `.pre-commit-config.yaml` is absent) |
+| `test` | Matrix across all supported Python versions (from the chosen minimum up to 3.14); runs `make test` on each (skipped if `tests/` is empty or absent); `fail-fast: false` so every version is reported; uploads `coverage.xml` to Codecov (skipped if the file was not generated) |
 
-Both jobs use `astral-sh/setup-uv` for fast, cached installs.
+Both jobs use `astral-sh/setup-uv` (with caching) and a `concurrency` group that
+cancels superseded runs on the same branch, saving CI minutes on rapid pushes.
+
+#### `docs.yml` — runs on every push to `main` that touches documentation-relevant files
+
+Triggers only when `docs/**`, `src/**`, `pyproject.toml`, `mkdocs.yml`, `examples/**`,
+or `scripts/**` change. Installs the `docs` dependency group and deploys the MkDocs
+site to GitHub Pages via `mkdocs gh-deploy --force` (skipped if `mkdocs.yml` is
+absent). This keeps your hosted docs in sync with the `main` branch between releases.
 
 #### `release.yml` — runs when a GitHub release is published
 
 | Job | What it does |
 | --- | --- |
-| `compatibility-tests` | Matrix job: runs `pytest` on **every supported Python version** from `python_requires` up to 3.13; uploads per-version coverage flags to Codecov |
-| `deploy-docs` | Runs after all matrix tests pass; builds the MkDocs site and deploys it to GitHub Pages via `mkdocs gh-deploy` |
-| `publish` | Runs after all matrix tests pass; builds the wheel and sdist with `uv build` and publishes to PyPI using **trusted publishing** (OIDC) — no `PYPI_TOKEN` secret is required |
+| `pypi-publish` | Checks out the repo, builds the wheel and sdist with `uv build`, and publishes to PyPI using **trusted publishing** (OIDC) — no `PYPI_TOKEN` secret is required |
 
-The `deploy-docs` and `publish` jobs both `need: compatibility-tests`, so a
-release is never published or documented if any test leg fails.
+> **Note:** Trusted publishing requires a one-time configuration on PyPI's side
+> before the first release. See [PyPI trusted publishing setup](#pypi-trusted-publishing-setup) below.
 
 ### PyPI trusted publishing setup
 
@@ -252,7 +284,7 @@ PyPI — no long-lived API token needs to be stored as a secret. One-time setup:
    - **Owner**: your GitHub username / org
    - **Repository**: your repo name
    - **Workflow**: `release.yml`
-   - **Environment**: `pypi`
-3. Create the `pypi` environment in your GitHub repository settings
+   - **Environment**: `release`
+3. Create the `release` environment in your GitHub repository settings
    (Settings → Environments) — no secrets needed, but you can add protection
    rules (e.g. require a reviewer before publishing).
