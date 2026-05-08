@@ -1,4 +1,4 @@
-.PHONY: quality style test{% if cookiecutter.enable_mypy == "yes" %} typecheck{% endif %}{% if cookiecutter.enable_docs == "yes" %} docs serve-docs{% endif %}
+.PHONY: quality style test{% if cookiecutter.enable_mypy == "yes" %} typecheck{% endif %}{% if cookiecutter.enable_docs == "yes" %} serve-docs{% endif %}
 
 PACKAGE = src/{{cookiecutter.project_slug}}
 
@@ -21,9 +21,6 @@ typecheck:
 	uv run mypy $(PACKAGE) tests/ scripts/
 {%- endif %}
 {%- if cookiecutter.enable_docs == "yes" %}
-
-docs:
-	uv run mkdocs serve
 
 DOCS_BRANCH ?= tmp-gh-pages
 DOCS_VERSION ?= 0.0.0
