@@ -10,7 +10,7 @@ A Cookiecutter template for modern Python projects.
 - Optional **[mypy](https://mypy.readthedocs.io/)** integration for static type checking
 - **[pytest](https://docs.pytest.org/)** with doctest support and [codecov](https://codecov.io/) integration
 - **[pre-commit](https://pre-commit.com/)** hooks for ruff and standard checks, with optional mypy hook
-- Optional docs stack: **[MkDocs Material](https://squidfunk.github.io/mkdocs-material/)** + `mkdocstrings` + lychee link checking workflows
+- Optional docs stack: **[MkDocs Material](https://squidfunk.github.io/mkdocs-material/)** + `mkdocstrings` + lychee link checking workflows + `mike`
 - Optional **interrogate** integration with docstring coverage badge workflow
 - **Makefile** with targets for quality checks and tests; optional type-checking and docs targets
 - **GitHub Actions**: CI matrix across all supported Python versions (3.10–3.14) on every push/PR, release publish, and optional docs/interrogate workflows
