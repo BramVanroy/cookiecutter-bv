@@ -3,8 +3,20 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - "**.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".pre-commit-config.yaml"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "**.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".pre-commit-config.yaml"
+      - ".github/workflows/ci.yml"
 
 # Cancel any in-progress run for the same branch/PR when a new push arrives.
 concurrency:
@@ -26,11 +38,16 @@ jobs:
           python-version: "{{cookiecutter.python_requires}}"
 
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
 
       - name: Run pre-commit
         if: hashFiles('.pre-commit-config.yaml') != ''
         run: uv run pre-commit run --all-files --show-diff-on-failure
+
+    {% if cookiecutter.enable_mypy == "yes" %}
+      - name: Run mypy
+        run: make typecheck
+    {% endif %}
 
   test:
     name: {% raw %}Tests (Python ${{ matrix.python-version }}){% endraw %}
@@ -52,7 +69,7 @@ jobs:
           python-version: {% raw %}${{ matrix.python-version }}{% endraw %}
 
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
 
       - name: Run tests
         if: hashFiles('tests/**') != ''
@@ -64,3 +81,6 @@ jobs:
         with:
           token: {% raw %}${{ secrets.CODECOV_TOKEN }}{% endraw %}
           files: coverage.xml
+          fail_ci_if_error: true
+          disable_search: true
+          disable_telem: true

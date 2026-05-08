@@ -1,6 +1,6 @@
 # Run `pre-commit autoupdate` periodically to keep pre-commit-hooks up to date.
-# ruff and mypy are local hooks driven by your uv environment — update them via
-# `uv lock --upgrade-package ruff` / `uv lock --upgrade-package mypy` instead.
+# ruff{% if cookiecutter.enable_mypy == "yes" %} and mypy are{% else %} is{% endif %} local hooks driven by your uv environment — update them via
+# `uv lock --upgrade-package ruff`{% if cookiecutter.enable_mypy == "yes" %} / `uv lock --upgrade-package mypy`{% endif %} instead.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -10,6 +10,8 @@ repos:
       - id: check-merge-conflict
       - id: check-toml
       - id: check-yaml
+        # Needed to allow the mkdocs.yml config file to be linted by pre-commit
+        args: [--unsafe]
       - id: end-of-file-fixer
       - id: trailing-whitespace
 
@@ -27,9 +29,11 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+{% if cookiecutter.enable_mypy == "yes" %}
       - id: mypy
         name: mypy
         entry: uv run mypy
         language: system
         types: [python]
         pass_filenames: false
+{% endif %}

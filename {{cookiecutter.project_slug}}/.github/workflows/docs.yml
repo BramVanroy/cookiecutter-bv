@@ -1,17 +1,14 @@
 name: Publish docs to GitHub Pages
 
 on:
-  push:
-    branches:
-      - main
-    # Only trigger when files relevant to the docs are changed
-    paths:
-      - 'docs/**'
-      - 'src/**'
-      - 'examples/**'
-      - 'scripts/**'
-      - 'pyproject.toml'
-      - 'mkdocs.yml'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Git tag to publish docs for, for example v0.3.0
+        required: true
+        type: string
 
 # Cancel any in-progress docs deploy for the same branch when a new push arrives.
 concurrency:
@@ -28,14 +25,67 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve docs tag and version
+        id: docs_ref
+        run: {% raw %}|
+          if [ "${{ github.event_name }}" = "release" ]; then
+            DOCS_GIT_TAG="${{ github.event.release.tag_name }}"
+          else
+            DOCS_GIT_TAG="${{ inputs.release_tag }}"
+          fi
+
+          if [ -z "${DOCS_GIT_TAG}" ]; then
+            echo "A release tag is required to publish docs." >&2
+            exit 1
+          fi
+
+          if ! git rev-parse --verify "refs/tags/${DOCS_GIT_TAG}" >/dev/null 2>&1; then
+            echo "Git tag '${DOCS_GIT_TAG}' does not exist." >&2
+            exit 1
+          fi
+
+          DOCS_VERSION="${DOCS_GIT_TAG#v}"
+          if [ -z "${DOCS_VERSION}" ] || [ "${DOCS_VERSION}" = "${DOCS_GIT_TAG}" ]; then
+            echo "Release tag must start with 'v'; got '${DOCS_GIT_TAG}'." >&2
+            exit 1
+          fi
+
+          echo "docs_git_tag=${DOCS_GIT_TAG}" >> "$GITHUB_OUTPUT"
+          echo "docs_version=${DOCS_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "DOCS_SOURCE_REF=${DOCS_GIT_TAG}" >> "$GITHUB_ENV"{% endraw %}
+
+      - name: Check out docs tag
+        run: {% raw %}git checkout "${{ steps.docs_ref.outputs.docs_git_tag }}"{% endraw %}
+
+      - name: Restore current docs build tooling for manual reruns
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git checkout "${GITHUB_SHA}" -- pyproject.toml
+          git checkout "${GITHUB_SHA}" -- uv.lock
+          git checkout "${GITHUB_SHA}" -- mkdocs.yml
+          git checkout "${GITHUB_SHA}" -- docs/hooks.py
+          git checkout "${GITHUB_SHA}" -- docs/overrides/python/material/class.html.jinja
+          git checkout "${GITHUB_SHA}" -- docs/overrides/python/material/function.html.jinja
 
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
       - name: Install docs dependencies
-        run: uv sync --group docs
+        run: uv sync --locked --group docs
 
-      - name: Build and deploy docs
-        if: hashFiles('mkdocs.yml') != ''
-        run: uv run mkdocs gh-deploy --force
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch gh-pages branch for mike
+        run: git fetch origin gh-pages --depth=1 || true
+
+      - name: Deploy release docs (tag -> version + set as latest)
+        run: {% raw %}|
+          VERSION="${{ steps.docs_ref.outputs.docs_version }}"
+          uv run mike deploy --push --update-aliases "${VERSION}" latest
+          uv run mike set-default --push latest{% endraw %}

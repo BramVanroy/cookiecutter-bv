@@ -10,9 +10,11 @@
 
 {{cookiecutter.project_description}}
 
+{% if cookiecutter.enable_docs == "yes" %}
 ## Documentation
 
 Full documentation is available at [{{cookiecutter.github_username}}.github.io/{{cookiecutter.github_repo_name}}](https://{{cookiecutter.github_username}}.github.io/{{cookiecutter.github_repo_name}}).
+{% endif %}
 
 ## Installation
 

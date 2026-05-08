@@ -10,8 +10,10 @@ PROJECT_NAME = "{{cookiecutter.project_name}}"
 GITHUB_USERNAME = "{{cookiecutter.github_username}}"
 GITHUB_REPO_NAME = "{{cookiecutter.github_repo_name}}"
 PYTHON_REQUIRES = "{{cookiecutter.python_requires}}"
+ENABLE_INTERROGATE = "{{cookiecutter.enable_interrogate}}"
+ENABLE_DOCS = "{{cookiecutter.enable_docs}}"
 
-# ── License ──────────────────────────────────────────────────────────────────
+# License
 
 LICENSE_FILES = {
     "MIT": "licenses/LICENSE_MIT",
@@ -24,7 +26,7 @@ shutil.copy(os.path.join(os.getcwd(), LICENSE_FILES[LICENSE]), "LICENSE")
 shutil.rmtree(os.path.join(os.getcwd(), "licenses"))
 
 
-# ── pyproject.toml: inject license field and classifiers ─────────────────────
+# pyproject.toml: inject license field and classifiers
 
 _ALL_PYTHON = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
@@ -52,22 +54,36 @@ _content = _content.replace(
 
 _pyproject.write_text(_content, encoding="utf-8")
 
-
-# ── Jinja overrides: substitute GitHub placeholders ──────────────────────────
-
-_JINJA_OVERRIDES = [
-    Path("docs/overrides/python/material/class.html.jinja"),
-    Path("docs/overrides/python/material/function.html.jinja"),
-]
-
-for _override in _JINJA_OVERRIDES:
-    _text = _override.read_text(encoding="utf-8")
-    _text = _text.replace("__GITHUB_USERNAME__", GITHUB_USERNAME)
-    _text = _text.replace("__GITHUB_REPO_NAME__", GITHUB_REPO_NAME)
-    _override.write_text(_text, encoding="utf-8")
+# .python-version
+Path(".python-version").write_text(f"{PYTHON_REQUIRES}\n", encoding="utf-8")
 
 
-# ── Git ───────────────────────────────────────────────────────────────────────
+def _safe_unlink(path: str) -> None:
+    filepath = Path(path)
+    if filepath.exists():
+        filepath.unlink()
+
+
+def _safe_rmtree(path: str) -> None:
+    dirpath = Path(path)
+    if dirpath.exists():
+        shutil.rmtree(dirpath)
+
+
+if ENABLE_INTERROGATE != "yes":
+    _safe_unlink(".github/workflows/interrogate-badge.yml")
+    _safe_unlink(".github/interrogate_badge.svg")
+
+if ENABLE_DOCS != "yes":
+    _safe_unlink(".github/workflows/docs.yml")
+    _safe_unlink(".github/workflows/links-md.yml")
+    _safe_unlink(".github/workflows/links-html-scheduled.yml")
+    _safe_unlink("mkdocs.yml")
+    _safe_unlink(".lychee.toml")
+    _safe_rmtree("docs")
+
+
+# Git initialization: best effort, but don't fail if git isn't available or user.name/email aren't configured
 
 def _run(*cmd: str) -> subprocess.CompletedProcess:
     return subprocess.run(list(cmd), capture_output=True, text=True)

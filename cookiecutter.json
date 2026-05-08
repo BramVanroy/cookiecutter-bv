@@ -7,6 +7,23 @@
     "author_email": "you@example.com",
     "github_username": "your-github-username",
     "python_requires": ["3.10", "3.11", "3.12", "3.13", "3.14"],
+    "enable_interrogate": ["yes", "no"],
+    "enable_mypy": ["yes", "no"],
+    "enable_docs": ["yes", "no"],
     "license": ["MIT", "Apache-2.0", "GPL-3.0", "Proprietary"],
+    "__prompts__": {
+        "project_name": "Project name",
+        "project_slug": "Package name (snake_case)",
+        "github_repo_name": "GitHub repository name (kebab-case)",
+        "project_description": "Short project description",
+        "author_name": "Author name",
+        "author_email": "Author email",
+        "github_username": "GitHub username or organization",
+        "python_requires": "Minimum supported Python version",
+        "enable_interrogate": "Include interrogate integration (docstring coverage checks + badge workflow)?",
+        "enable_mypy": "Include mypy integration (type checking in Makefile/pre-commit/CI)?",
+        "enable_docs": "Include docs integration (MkDocs + GitHub Pages deploy + lychee link checking workflows)?",
+        "license": "License"
+    },
     "_copy_without_render": ["*.html.jinja"]
 }

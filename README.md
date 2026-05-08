@@ -7,12 +7,13 @@ A Cookiecutter template for modern Python projects.
 - **[uv](https://docs.astral.sh/uv/)** for dependency management and virtual environments
 - **[hatch-vcs](https://github.com/ofek/hatch-vcs)** for dynamic versioning from git tags
 - **[ruff](https://docs.astral.sh/ruff/)** for linting and formatting (Google docstring convention)
-- **[mypy](https://mypy.readthedocs.io/)** for static type checking
+- Optional **[mypy](https://mypy.readthedocs.io/)** integration for static type checking
 - **[pytest](https://docs.pytest.org/)** with doctest support and [codecov](https://codecov.io/) integration
-- **[pre-commit](https://pre-commit.com/)** hooks for ruff, mypy, and standard checks
-- **[MkDocs Material](https://squidfunk.github.io/mkdocs-material/)** documentation with `mkdocstrings`
-- **Makefile** with targets for quality checks, type checking, testing (with coverage), and docs preview; `make test` is shared between local dev and CI
-- **GitHub Actions**: CI matrix across all supported Python versions (3.10–3.14) on every push/PR, docs deploy + PyPI publish on release
+- **[pre-commit](https://pre-commit.com/)** hooks for ruff and standard checks, with optional mypy hook
+- Optional docs stack: **[MkDocs Material](https://squidfunk.github.io/mkdocs-material/)** + `mkdocstrings` + lychee link checking workflows
+- Optional **interrogate** integration with docstring coverage badge workflow
+- **Makefile** with targets for quality checks and tests; optional type-checking and docs targets
+- **GitHub Actions**: CI matrix across all supported Python versions (3.10–3.14) on every push/PR, release publish, and optional docs/interrogate workflows
 - **`src/` layout** with `scripts/` and `tests/` directories
 
 ## Usage
@@ -83,6 +84,9 @@ The hook automatically:
 | `author_email` | Your email address | from `~/.cookiecutterrc` |
 | `github_username` | GitHub username / org | from `~/.cookiecutterrc` |
 | `python_requires` | Minimum Python version | `3.10` |
+| `enable_interrogate` | Include interrogate integration (docstring coverage checks + badge workflow) | `yes` |
+| `enable_mypy` | Include mypy integration (Makefile, pyproject, pre-commit, CI) | `yes` |
+| `enable_docs` | Include docs integration (MkDocs + Pages deploy + lychee checks) | `yes` |
 | `license` | License type | `MIT` |
 
 ## What's built in
@@ -96,7 +100,7 @@ The hook automatically:
 │   └── py.typed          # PEP 561 marker — declares the package as typed
 ├── tests/                # pytest test suite
 ├── scripts/              # one-off helper scripts (not part of the package)
-├── docs/                 # MkDocs source
+├── docs/                 # MkDocs source (optional)
 ├── Makefile              # dev workflow commands (also used by CI)
 └── pyproject.toml
 ```
@@ -146,12 +150,10 @@ by `ruff format` (`docstring-code-format = true`).
 The `D` rules are suppressed for `tests/` (no docstrings required on test
 functions) and for the auto-generated `_version.py` file.
 
-### Type checking — mypy
+### Type checking — mypy (optional)
 
-**[mypy](https://mypy.readthedocs.io/)** runs in strict mode against
-`src/<project_slug>/`. Strict mode enables all optional error codes, including
-`disallow_untyped_defs`, `warn_return_any`, and `disallow_any_unimported`.
-The auto-generated `_version.py` is excluded from the mypy run.
+When enabled, **[mypy](https://mypy.readthedocs.io/)** checks `src/`, `tests/`,
+and `scripts/` using the template defaults in `pyproject.toml`.
 
 ### Testing — pytest
 
@@ -192,11 +194,11 @@ A `Makefile` provides short commands for the most common dev tasks:
 
 | Target | What it does |
 | --- | --- |
-| `make quality` | `ruff check` + `ruff format --check` — read-only lint/format check |
+| `make quality` | `ruff check` + `ruff format --check` (and `interrogate` when enabled) |
 | `make style` | `ruff check --fix` + `ruff format` — fix lint and formatting in-place |
-| `make typecheck` | `mypy` against `src/`, `tests/`, and `scripts/` |
+| `make typecheck` | `mypy` against `src/`, `tests/`, and `scripts/` (optional) |
 | `make test` | `pytest` with terminal coverage summary **and** `coverage.xml` for Codecov |
-| `make docs` | `mkdocs serve` — live-preview the docs locally |
+| `make docs` | `mkdocs serve` — live-preview the docs locally (optional) |
 
 `make test` is the **single source of truth** for the pytest invocation. The CI `test`
 job calls `make test` directly, so coverage flags only ever need changing in one place.
@@ -220,15 +222,15 @@ validation, whitespace, ruff, mypy) and mirrors what the git commit hook enforce
 | `trailing-whitespace` | Strips trailing whitespace |
 | `ruff-lint` (local) | Runs `uv run ruff check --fix`; fails if unfixable violations remain |
 | `ruff-format` (local) | Runs `uv run ruff format` |
-| `mypy` (local) | Runs `uv run mypy` against the full project |
+| `mypy` (local) | Runs `uv run mypy` against the full project (optional) |
 
-All three tool hooks are **local** — they use the ruff and mypy versions installed by
+All tool hooks are **local** — they use the ruff/mypy versions installed by
 uv, so there is no separate hook environment to download and no risk of version drift
 between your dev dependencies and the hooks.
 
 Install once per clone with `uv run pre-commit install`.
 
-### Documentation — MkDocs Material
+### Documentation — MkDocs Material (optional)
 
 Documentation lives in `docs/` and is built with
 **[MkDocs Material](https://squidfunk.github.io/mkdocs-material/)**.
@@ -236,8 +238,9 @@ The **[mkdocstrings](https://mkdocstrings.github.io/)** plugin auto-generates AP
 reference pages directly from the source docstrings (Google style). The
 `docs/api.md` page uses the `:::` directive to render the full package API.
 
-MkDocs packages live in the `docs` dependency group. `uv sync --group dev`
-already includes them (the `dev` group includes `docs`). Build and preview locally:
+MkDocs packages live in the optional `docs` dependency group. When docs support is
+enabled, `uv sync --group dev` already includes them (the `dev` group includes `docs`).
+Build and preview locally:
 
 ```bash
 uv run mkdocs serve
@@ -245,7 +248,15 @@ uv run mkdocs serve
 
 ### GitHub Actions
 
-Three workflows are included.
+Core workflows included by default:
+
+- `ci.yml`
+- `publish.yml`
+
+Optional workflows:
+
+- `interrogate-badge.yml` (only when `enable_interrogate = yes`)
+- `docs.yml`, `links-md.yml`, and `links-html-scheduled.yml` (only when `enable_docs = yes`)
 
 #### `ci.yml` — runs on every push to `main` and on every pull request
 
@@ -257,14 +268,15 @@ Three workflows are included.
 Both jobs use `astral-sh/setup-uv` (with caching) and a `concurrency` group that
 cancels superseded runs on the same branch, saving CI minutes on rapid pushes.
 
-#### `docs.yml` — runs on every push to `main` that touches documentation-relevant files
+#### `docs.yml` (optional) — runs on published releases or manual dispatch
 
-Triggers only when `docs/**`, `src/**`, `pyproject.toml`, `mkdocs.yml`, `examples/**`,
-or `scripts/**` change. Installs the `docs` dependency group and deploys the MkDocs
-site to GitHub Pages via `mkdocs gh-deploy --force` (skipped if `mkdocs.yml` is
-absent). This keeps your hosted docs in sync with the `main` branch between releases.
+This workflow resolves a release tag, checks out that tag, installs the `docs` group,
+and deploys versioned docs to GitHub Pages via `mike`.
 
-#### `release.yml` — runs when a GitHub release is published
+`links-md.yml` (optional) checks Markdown links on docs/README changes with lychee.
+`links-html-scheduled.yml` (optional) checks links in rendered `gh-pages` HTML on a schedule.
+
+#### `publish.yml` — runs when a GitHub release is published
 
 | Job | What it does |
 | --- | --- |
@@ -281,10 +293,10 @@ PyPI — no long-lived API token needs to be stored as a secret. One-time setup:
 1. Create the project on PyPI (or reserve the name via a manual upload first).
 2. Go to the project's **Publishing** settings on PyPI and add a trusted
    publisher with:
-   - **Owner**: your GitHub username / org
-   - **Repository**: your repo name
-   - **Workflow**: `release.yml`
-   - **Environment**: `release`
+    - **Owner**: your GitHub username / org
+    - **Repository**: your repo name
+    - **Workflow**: `publish.yml`
+    - **Environment**: `release`
 3. Create the `release` environment in your GitHub repository settings
    (Settings → Environments) — no secrets needed, but you can add protection
    rules (e.g. require a reviewer before publishing).
