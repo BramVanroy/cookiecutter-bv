@@ -25,5 +25,5 @@
         "enable_docs": "Include docs integration (MkDocs + GitHub Pages deploy + lychee link checking workflows)?",
         "license": "License"
     },
-    "_copy_without_render": ["*.html.jinja"]
+    "_copy_without_render": ["*.html.jinja", "*.html", "*.js", "*.map", "*.css", "*.yaml"]
 }
