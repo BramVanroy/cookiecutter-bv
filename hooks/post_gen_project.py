@@ -12,6 +12,7 @@ GITHUB_REPO_NAME = "{{cookiecutter.github_repo_name}}"
 PYTHON_REQUIRES = "{{cookiecutter.python_requires}}"
 ENABLE_INTERROGATE = "{{cookiecutter.enable_interrogate}}"
 ENABLE_DOCS = "{{cookiecutter.enable_docs}}"
+ENABLE_MYPY = "{{cookiecutter.enable_mypy}}"
 
 # License
 
@@ -45,6 +46,11 @@ _classifier_lines = "\n".join(
     for v in _ALL_PYTHON[_min_idx:]
 )
 _classifier_lines += '\n    "Programming Language :: Python :: 3 :: Only",'
+if ENABLE_MYPY == "yes":
+    _classifier_lines += '\n    "Typing :: Typed",'
+if ENABLE_DOCS == "yes":
+    _classifier_lines += '\n    "Framework :: MkDocs",'
+_classifier_lines += '\n    "Framework :: Pytest",'
 _classifiers = f"classifiers = [\n{_classifier_lines}\n]"
 
 _content = _content.replace(

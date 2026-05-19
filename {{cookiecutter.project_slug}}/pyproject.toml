@@ -8,6 +8,7 @@ authors = [
 readme = "README.md"
 requires-python = ">={{cookiecutter.python_requires}}"
 license-files = ["LICENSE"]
+
 dependencies = []
 
 [project.urls]
