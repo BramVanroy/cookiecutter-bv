@@ -6,7 +6,7 @@
     "author_name": "Your Name",
     "author_email": "you@example.com",
     "github_username": "your-github-username",
-    "python_requires": ["3.10", "3.11", "3.12", "3.13", "3.14"],
+    "python_requires": ["3.11", "3.12", "3.13", "3.14"],
     "enable_interrogate": ["yes", "no"],
     "enable_mypy": ["yes", "no"],
     "enable_docs": ["yes", "no"],
@@ -25,5 +25,5 @@
         "enable_docs": "Include docs integration (MkDocs + GitHub Pages deploy + lychee link checking workflows)?",
         "license": "License"
     },
-    "_copy_without_render": ["*.html.jinja", "*.html", "*.js", "*.map", "*.css", "*.yaml"]
+    "_copy_without_render": ["docs/overrides", "docs/templates"]
 }

@@ -24,7 +24,6 @@ from pygments import highlight as pyg_highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import PythonLexer
 
-
 _lexer = PythonLexer()
 _formatter = HtmlFormatter(nowrap=True)
 _SOURCE_LINK_PATTERN = re.compile(
@@ -34,35 +33,37 @@ _SOURCE_LINK_PATTERN = re.compile(
 )
 
 
+# Doctest examples are rendered as `pycon` (current mkdocstrings) or
+# `text` (older versions) code blocks.
+_DOCTEST_BLOCK_PATTERN = re.compile(
+    r'<div class="language-(?:pycon|text) highlight">'
+    r"<pre[^>]*><span></span><code>(.*?)</code></pre></div>",
+    flags=re.DOTALL,
+)
+_TAG_PATTERN = re.compile(r"<[^>]+>")
+
+
 def _strip_doctest_prompts(code: str) -> str:
-    """
-    - Strip ``>>> `` and ``... `` prompts portions of examples in docstrings;
-    - convert output lines to ``# comments``.
+    """Turn a doctest example into plain, copyable Python.
 
-    Does smart handling of output in the examples so that it gets written to a comment in the documentation.
+    Strips the ``>>> `` and ``... `` prompts and turns the expected output
+    lines into ``# comments``.
     """
-    lines = code.split("\n")
     result: list[str] = []
-    expect_output = False
+    in_example = False
 
-    for line in lines:
-        if line.startswith(">>> "):
+    for line in code.split("\n"):
+        if line.startswith(">>> ") or line == ">>>":
             result.append(line[4:])
-            expect_output = True
-        elif line == ">>>":
-            result.append("")
-            expect_output = False
-        elif line.startswith("... "):
+            in_example = True
+        elif in_example and (line.startswith("... ") or line == "..."):
             result.append(line[4:])
-        elif line == "...":
-            result.append("")
-        elif expect_output and line != "":
+        elif in_example and line.strip():
+            # Expected output: everything up to the next prompt or blank line.
             result.append("# " + line)
-            expect_output = False
         else:
             result.append(line)
-            if line.strip():
-                expect_output = False
+            in_example = False
 
     return "\n".join(result).strip()
 
@@ -103,7 +104,8 @@ def _build_github_source_url(
     source_target: str,
 ) -> str:
     """Build a GitHub source URL from a repo URL and relative source target."""
-    filepath, hash_sep, fragment = html_lib.unescape(source_target).partition("#")
+    unescaped = html_lib.unescape(source_target)
+    filepath, hash_sep, fragment = unescaped.partition("#")
     quoted_ref = quote(git_ref, safe="/")
     quoted_filepath = quote(filepath, safe="/")
     url = f"{repo_url}/blob/{quoted_ref}/{quoted_filepath}"
@@ -127,8 +129,8 @@ def _rewrite_source_links(
             source_target=source_target,
         )
         return (
-            f'{match.group("prefix")}{html_lib.escape(source_url, quote=True)}'
-            f'{match.group("suffix")}'
+            f"{match.group('prefix')}{html_lib.escape(source_url, quote=True)}"
+            f"{match.group('suffix')}"
         )
 
     return _SOURCE_LINK_PATTERN.sub(transform_link, html)
@@ -137,24 +139,20 @@ def _rewrite_source_links(
 def on_page_content(html: str, **kwargs) -> str:
     """Post-process rendered page HTML for doctests and GitHub source links."""
 
-    def transform_block(m: re.Match) -> str:
-        """Transform a text-highlighted doctest block into Python-highlighted code."""
-        raw_code = m.group(1)
-        if "&gt;&gt;&gt;" not in raw_code:
+    def transform_block(m: re.Match[str]) -> str:
+        """Re-highlight a doctest block as plain Python."""
+        # Drop pygments' token spans and line anchors to recover the text.
+        raw_code = html_lib.unescape(_TAG_PATTERN.sub("", m.group(1)))
+        if not raw_code.lstrip().startswith(">>>"):
             return m.group(0)
-        clean = _strip_doctest_prompts(html_lib.unescape(raw_code))
+        clean = _strip_doctest_prompts(raw_code)
         inner = pyg_highlight(clean, _lexer, _formatter)
         return (
             '<div class="language-python highlight">'
             "<pre><span></span><code>" + inner + "</code></pre></div>"
         )
 
-    html = re.sub(
-        r'<div class="language-text highlight"><pre[^>]*><span></span><code>(.*?)</code></pre></div>',
-        transform_block,
-        html,
-        flags=re.DOTALL,
-    )
+    html = _DOCTEST_BLOCK_PATTERN.sub(transform_block, html)
 
     repo_url = _get_repo_url(kwargs.get("config"))
     if repo_url is None:

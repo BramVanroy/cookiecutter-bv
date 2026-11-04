@@ -1,6 +1,5 @@
-"""Post-generation hook: install correct license, initialize git repo."""
+"""Post-generation hook: install the license, prune disabled features, init git."""
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,127 +8,92 @@ LICENSE = "{{cookiecutter.license}}"
 PROJECT_NAME = "{{cookiecutter.project_name}}"
 GITHUB_USERNAME = "{{cookiecutter.github_username}}"
 GITHUB_REPO_NAME = "{{cookiecutter.github_repo_name}}"
-PYTHON_REQUIRES = "{{cookiecutter.python_requires}}"
-ENABLE_INTERROGATE = "{{cookiecutter.enable_interrogate}}"
-ENABLE_DOCS = "{{cookiecutter.enable_docs}}"
-ENABLE_MYPY = "{{cookiecutter.enable_mypy}}"
-
-# License
+ENABLE_INTERROGATE = "{{cookiecutter.enable_interrogate}}" == "yes"
+ENABLE_DOCS = "{{cookiecutter.enable_docs}}" == "yes"
 
 LICENSE_FILES = {
-    "MIT": "licenses/LICENSE_MIT",
-    "Apache-2.0": "licenses/LICENSE_APACHE_2.0",
-    "GPL-3.0": "licenses/LICENSE_GPL_3.0",
-    "Proprietary": "licenses/LICENSE_PROPRIETARY",
+    "MIT": "LICENSE_MIT",
+    "Apache-2.0": "LICENSE_APACHE_2.0",
+    "GPL-3.0": "LICENSE_GPL_3.0",
+    "Proprietary": "LICENSE_PROPRIETARY",
 }
 
-shutil.copy(os.path.join(os.getcwd(), LICENSE_FILES[LICENSE]), "LICENSE")
-shutil.rmtree(os.path.join(os.getcwd(), "licenses"))
+# Files and directories that only exist for an optional feature.
+OPTIONAL_PATHS = {
+    "interrogate": (
+        ENABLE_INTERROGATE,
+        [".github/workflows/interrogate-badge.yml"],
+    ),
+    "docs": (
+        ENABLE_DOCS,
+        [
+            ".github/workflows/docs.yml",
+            ".github/workflows/links-md.yml",
+            ".github/workflows/links-html-scheduled.yml",
+            ".lychee.toml",
+            "mkdocs.yml",
+            "docs",
+        ],
+    ),
+}
 
 
-# pyproject.toml: inject license field and classifiers
-
-_ALL_PYTHON = ["3.10", "3.11", "3.12", "3.13", "3.14"]
-
-_pyproject = Path("pyproject.toml")
-_content = _pyproject.read_text(encoding="utf-8")
-
-if LICENSE != "Proprietary":
-    _content = _content.replace(
-        'license-files = ["LICENSE"]',
-        f'license = "{LICENSE}"\nlicense-files = ["LICENSE"]',
-    )
-
-_min_idx = _ALL_PYTHON.index(PYTHON_REQUIRES)
-_classifier_lines = "\n".join(
-    f'    "Programming Language :: Python :: {v}",'
-    for v in _ALL_PYTHON[_min_idx:]
-)
-_classifier_lines += '\n    "Programming Language :: Python :: 3 :: Only",'
-if ENABLE_MYPY == "yes":
-    _classifier_lines += '\n    "Typing :: Typed",'
-if ENABLE_DOCS == "yes":
-    _classifier_lines += '\n    "Framework :: MkDocs",'
-_classifier_lines += '\n    "Framework :: Pytest",'
-_classifiers = f"classifiers = [\n{_classifier_lines}\n]"
-
-_content = _content.replace(
-    'license-files = ["LICENSE"]',
-    f'license-files = ["LICENSE"]\n{_classifiers}',
-)
-
-_pyproject.write_text(_content, encoding="utf-8")
-
-# .python-version
-Path(".python-version").write_text(f"{PYTHON_REQUIRES}\n", encoding="utf-8")
+def _remove(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+    elif path.exists():
+        path.unlink()
 
 
-def _safe_unlink(path: str) -> None:
-    filepath = Path(path)
-    if filepath.exists():
-        filepath.unlink()
+def _run(*cmd: str) -> subprocess.CompletedProcess[str] | None:
+    """Run a command, returning None if the executable is not installed."""
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        return None
 
 
-def _safe_rmtree(path: str) -> None:
-    dirpath = Path(path)
-    if dirpath.exists():
-        shutil.rmtree(dirpath)
+# License
+shutil.copy(Path("licenses") / LICENSE_FILES[LICENSE], "LICENSE")
+shutil.rmtree("licenses")
 
+# Optional features
+for enabled, paths in OPTIONAL_PATHS.values():
+    if not enabled:
+        for p in paths:
+            _remove(Path(p))
 
-if ENABLE_INTERROGATE != "yes":
-    _safe_unlink(".github/workflows/interrogate-badge.yml")
-    _safe_unlink(".github/interrogate_badge.svg")
+# Lock file: best effort (needs uv and network access). CI uses `--locked`,
+# so committing uv.lock from the start keeps the first push green.
+lock = _run("uv", "lock", "--quiet")
+locked = lock is not None and lock.returncode == 0
+if not locked:
+    print("\nNote: could not create uv.lock; run `uv lock` and commit it.")
 
-if ENABLE_DOCS != "yes":
-    _safe_unlink(".github/workflows/docs.yml")
-    _safe_unlink(".github/workflows/links-md.yml")
-    _safe_unlink(".github/workflows/links-html-scheduled.yml")
-    _safe_unlink("mkdocs.yml")
-    _safe_unlink(".lychee.toml")
-    _safe_rmtree("docs")
-
-
-# Git initialization: best effort, but don't fail if git isn't available or user.name/email aren't configured
-
-def _run(*cmd: str) -> subprocess.CompletedProcess:
-    return subprocess.run(list(cmd), capture_output=True, text=True)
-
-
-git_ok = False
-try:
-    # Prefer explicit 'main' branch; fall back for Git < 2.28
-    if _run("git", "init", "-b", "main").returncode != 0:
-        _run("git", "init")
-
-    _run("git", "add", "-A")
-    result = _run("git", "commit", "-m", "chore: initial project scaffold")
-    if result.returncode != 0:
-        # Likely no user.name / user.email configured globally — still usable
-        print(f"\nNote: initial commit skipped ({result.stderr.strip()}).")
-        print("      Run `git config --global user.name/email` and commit manually.")
-    else:
-        git_ok = True
-except FileNotFoundError:
+# Git: best effort, never fail generation.
+committed = False
+init = _run("git", "init", "-b", "main")
+if init is None:
     print("\nNote: git not found; skipping repository initialization.")
+else:
+    _run("git", "add", "-A")
+    commit = _run("git", "commit", "-m", "chore: initial project scaffold")
+    committed = commit is not None and commit.returncode == 0
+    if not committed:
+        print("\nNote: initial commit skipped; configure git user.name/email")
+        print("      and commit manually.")
 
-
-# ── Summary ───────────────────────────────────────────────────────────────────
-
-print(f"\n✔  Project '{PROJECT_NAME}' created successfully.")
-
-print("\nNext steps:")
-print(f"\n  cd {GITHUB_REPO_NAME}")
-
-if not git_ok:
-    print("\n  # Initialize git (skipped above):")
-    print("  git init -b main && git add -A && git commit -m 'chore: initial project scaffold'")
-
-print("\n  # Create the GitHub repository and push in one step (requires gh CLI):")
-print(f"  gh repo create {GITHUB_REPO_NAME} --public --source=. --remote=origin --push")
-print("\n  # Or manually:")
-print(f"  git remote add origin git@github.com:{GITHUB_USERNAME}/{GITHUB_REPO_NAME}.git")
-print("  git push -u origin main")
-
+# Summary
+print(f"\n✔  Project '{PROJECT_NAME}' created successfully.\n")
+print("Next steps:\n")
+print(f"  cd {GITHUB_REPO_NAME}")
 print("  uv sync")
 print("  uv run pre-commit install")
+if not committed:
+    print("  git add -A && git commit -m 'chore: initial project scaffold'")
+print("\n  # Create the GitHub repository and push (requires the gh CLI):")
+print(
+    f"  gh repo create {GITHUB_USERNAME}/{GITHUB_REPO_NAME} --public "
+    "--source=. --remote=origin --push"
+)
 print()

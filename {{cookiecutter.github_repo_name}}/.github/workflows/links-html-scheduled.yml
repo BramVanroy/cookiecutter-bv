@@ -1,0 +1,60 @@
+name: Docs links (HTML, scheduled)
+
+on:
+  schedule:
+    - cron: "20 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  links:
+    name: Check published HTML links
+    runs-on: ubuntu-latest
+    steps:
+      # Check out gh-pages into a sub-directory named like the Pages base path
+      # (/{{cookiecutter.github_repo_name}}/), so that root-relative links such as
+      # /{{cookiecutter.github_repo_name}}/latest/... resolve via --root-dir.
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: gh-pages
+          path: {{cookiecutter.github_repo_name}}
+          persist-credentials: false
+
+      - name: Restore lychee cache
+        id: restore-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: .lycheecache
+          key: cache-lychee-html-{% raw %}${{ github.sha }}{% endraw %}
+          restore-keys: cache-lychee-html-
+
+      - name: Check links with lychee
+        id: lychee
+        uses: lycheeverse/lychee-action@v2.9.0
+        with:
+          # Don't fail here: a failing run opens an issue in the next step.
+          fail: false
+          token: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
+          args: >-
+            --cache
+            --no-progress
+            --root-dir {% raw %}${{ github.workspace }}{% endraw %}
+            '{{cookiecutter.github_repo_name}}/latest/**/*.html'
+
+      - name: Save lychee cache
+        if: always()
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: .lycheecache
+          key: {% raw %}${{ steps.restore-cache.outputs.cache-primary-key || format('cache-lychee-html-{0}', github.sha) }}{% endraw %}
+
+      - name: Open issue with the report
+        if: steps.lychee.outputs.exit_code != 0
+        uses: peter-evans/create-issue-from-file@v6.0.0
+        with:
+          title: Link checker report
+          content-filepath: ./lychee/out.md
+          labels: report, automated issue

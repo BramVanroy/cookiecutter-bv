@@ -1,0 +1,20 @@
+# Shared lychee defaults for local checks and CI.
+verbose = "info"
+no_progress = true
+max_retries = 2
+retry_wait_time = 2
+timeout = 20
+max_concurrency = 8
+accept = ["200..=206", 429]
+
+exclude = [
+  # Local app/demo URLs are expected to be unavailable in CI.
+  '^https?://localhost',
+  '^https?://127\.0\.0\.1',
+  # Badges and pages that only exist after the first release/deploy.
+  '^https://img\.shields\.io/',
+  '^https://badge\.fury\.io/',
+  '^https://codecov\.io/gh/{{cookiecutter.github_username}}/{{cookiecutter.github_repo_name}}',
+  '^https://pypi\.org/project/{{cookiecutter.github_repo_name}}',
+  '^https://{{cookiecutter.github_username}}\.github\.io/{{cookiecutter.github_repo_name}}',
+]
