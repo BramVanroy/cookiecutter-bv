@@ -32,5 +32,5 @@ uv run pre-commit install
 Run tests:
 
 ```bash
-uv run pytest
+make test
 ```

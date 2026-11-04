@@ -1,6 +1,7 @@
 scratches/
 
 .ruff_cache
+.lycheecache
 .venv
 
 # Mkdocs documentation. Not tracked; will be built by a github action

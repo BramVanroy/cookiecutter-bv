@@ -29,9 +29,23 @@ git clone https://github.com/{{cookiecutter.github_username}}/{{cookiecutter.git
 cd {{cookiecutter.github_repo_name}}
 uv sync
 uv run pre-commit install
-uv run pytest
 ```
+
+| Command | What it does |
+| --- | --- |
+| `make test` | Run tests and doctests with coverage |
+| `make quality` | Lint and format checks (no changes) |
+| `make style` | Auto-fix lint issues and reformat |
+{%- if cookiecutter.enable_mypy == "yes" %}
+| `make typecheck` | Run mypy |
+{%- endif %}
+{%- if cookiecutter.enable_docs == "yes" %}
+| `make docs` | Live preview of the documentation |
+{%- endif %}
+
+Releases are cut by pushing a `vX.Y.Z` tag and publishing a GitHub release from
+it; the version is derived from the tag.
 
 ## License
 
-{{cookiecutter.license}}
+{{cookiecutter.license}}. See [LICENSE](LICENSE).

@@ -8,14 +8,16 @@ on:
       - "docs/**"
       - ".lychee.toml"
   pull_request:
-    branches: [main]
     paths:
       - "README.md"
       - "docs/**"
       - ".lychee.toml"
 
+permissions:
+  contents: read
+
 concurrency:
-  group: {% raw %}${{ github.workflow }}-md${{ github.ref }}{% endraw %}
+  group: {% raw %}${{ github.workflow }}-${{ github.ref }}{% endraw %}
   cancel-in-progress: true
 
 jobs:
@@ -23,22 +25,23 @@ jobs:
     name: Check Markdown links
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Restore lychee cache
         id: restore-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6.1.0
         with:
           path: .lycheecache
           key: cache-lychee-md-{% raw %}${{ github.sha }}{% endraw %}
           restore-keys: cache-lychee-md-
 
       - name: Check links with lychee
-        uses: lycheeverse/lychee-action@v2
-        env:
-          GITHUB_TOKEN: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
+        uses: lycheeverse/lychee-action@v2.9.0
         with:
           fail: true
+          token: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
           args: >-
             --config .lychee.toml
             --cache
@@ -48,7 +51,7 @@ jobs:
 
       - name: Save lychee cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6.1.0
         with:
           path: .lycheecache
           key: {% raw %}${{ steps.restore-cache.outputs.cache-primary-key || format('cache-lychee-md-{0}', github.sha) }}{% endraw %}

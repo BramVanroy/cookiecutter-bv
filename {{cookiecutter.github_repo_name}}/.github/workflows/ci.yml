@@ -1,0 +1,88 @@
+{%- set all_python = _cookiecutter.python_requires | sort -%}
+{%- set py_versions = all_python | select("ge", cookiecutter.python_requires) | list -%}
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel any in-progress run for the same branch/PR when a new push arrives.
+concurrency:
+  group: {% raw %}${{ github.workflow }}-${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Code quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.3.1
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      # Runs ruff{% if cookiecutter.enable_mypy == "yes" %}, mypy{% endif %} and the generic file checks, exactly like the git hook.
+      - name: Run pre-commit
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+{%- if cookiecutter.enable_interrogate == "yes" %}
+
+      - name: Check docstring coverage
+        run: uv run interrogate -v src
+{%- endif %}
+
+  test:
+    name: {% raw %}Tests (Python ${{ matrix.python-version }}){% endraw %}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: {{ py_versions | tojson }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.3.1
+        with:
+          enable-cache: true
+          python-version: {% raw %}${{ matrix.python-version }}{% endraw %}
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Run tests
+        run: make test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          token: {% raw %}${{ secrets.CODECOV_TOKEN }}{% endraw %}
+          files: coverage.xml
+          disable_search: true
+          disable_telem: true
+          # Forks have no access to the token; don't fail their PRs over it.
+          fail_ci_if_error: {% raw %}${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}{% endraw %}
+
+  # Single required status check for branch protection.
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [quality, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        if: {% raw %}contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'){% endraw %}
+        run: exit 1

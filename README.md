@@ -8,13 +8,14 @@ A Cookiecutter template for modern Python projects.
 - **[hatch-vcs](https://github.com/ofek/hatch-vcs)** for dynamic versioning from git tags
 - **[ruff](https://docs.astral.sh/ruff/)** for linting and formatting (Google docstring convention)
 - Optional **[mypy](https://mypy.readthedocs.io/)** integration for static type checking
-- **[pytest](https://docs.pytest.org/)** with doctest support and [codecov](https://codecov.io/) integration
+- **[pytest](https://docs.pytest.org/)** (native TOML config, strict mode) with doctest support and [codecov](https://codecov.io/) integration
 - **[pre-commit](https://pre-commit.com/)** hooks for ruff and standard checks, with optional mypy hook
 - Optional docs stack: **[MkDocs Material](https://squidfunk.github.io/mkdocs-material/)** + `mkdocstrings` + lychee link checking workflows + `mike`
 - Optional **interrogate** integration with docstring coverage badge workflow
 - **Makefile** with targets for quality checks and tests; optional type-checking and docs targets
-- **GitHub Actions**: CI matrix across all supported Python versions (3.10–3.14) on every push/PR, release publish, and optional docs/interrogate workflows
+- **GitHub Actions**: CI matrix across all supported Python versions (3.11–3.14) on every push/PR, release publish with PyPI trusted publishing + attestations, and optional docs/interrogate workflows. All actions are pinned to exact versions and kept current by **Dependabot** (which also updates `uv.lock`)
 - **`src/` layout** with `scripts/` and `tests/` directories
+- `uv.lock` is generated and included in the initial git commit, so `uv sync --locked` in CI works from the first push
 
 ## Usage
 
@@ -83,11 +84,11 @@ The hook automatically:
 | `author_name` | Your full name | from `~/.cookiecutterrc` |
 | `author_email` | Your email address | from `~/.cookiecutterrc` |
 | `github_username` | GitHub username / org | from `~/.cookiecutterrc` |
-| `python_requires` | Minimum Python version | `3.10` |
+| `python_requires` | Minimum Python version | `3.11` |
 | `enable_interrogate` | Include interrogate integration (docstring coverage checks + badge workflow) | `yes` |
 | `enable_mypy` | Include mypy integration (Makefile, pyproject, pre-commit, CI) | `yes` |
 | `enable_docs` | Include docs integration (MkDocs + Pages deploy + lychee checks) | `yes` |
-| `license` | License type | `MIT` |
+| `license` | License type. `Proprietary` adds the `Private :: Do Not Upload` classifier, so PyPI rejects accidental uploads | `MIT` |
 
 ## What's built in
 
@@ -147,8 +148,9 @@ single tool. The enabled rule sets are:
 Line length is 79 (CPython default). Docstring code examples are also formatted
 by `ruff format` (`docstring-code-format = true`).
 
-The `D` rules are suppressed for `tests/` (no docstrings required on test
-functions) and for the auto-generated `_version.py` file.
+The `D` rules are suppressed for `tests/` and `scripts/` (no docstrings required
+there). The minimum Python version for `ruff` (pyupgrade) is read from
+`requires-python`.
 
 ### Type checking — mypy (optional)
 
@@ -196,16 +198,21 @@ A `Makefile` provides short commands for the most common dev tasks:
 | --- | --- |
 | `make quality` | `ruff check` + `ruff format --check` (and `interrogate` when enabled) |
 | `make style` | `ruff check --fix` + `ruff format` — fix lint and formatting in-place |
-| `make typecheck` | `mypy` against `src/`, `tests/`, and `scripts/` (optional) |
+| `make typecheck` | `mypy` against `src/` and `tests/` (optional) |
 | `make test` | `pytest` with terminal coverage summary **and** `coverage.xml` for Codecov |
 | `make docs` | `mkdocs serve` — live-preview the docs locally (optional) |
+| `make serve-docs` | Preview the versioned `mike` site from a throwaway local branch (optional) |
 
-`make test` is the **single source of truth** for the pytest invocation. The CI `test`
-job calls `make test` directly, so coverage flags only ever need changing in one place.
+`make test` is the **single source of truth** for the coverage-enabled pytest
+invocation, and the CI `test` job calls it directly. Plain `uv run pytest` (e.g. for a
+single test) runs without coverage overhead. Coverage settings live in
+`[tool.coverage]` in `pyproject.toml`.
 
 The `quality` CI job does _not_ use the Makefile — it runs
 `pre-commit run --all-files`, which covers a broader set of checks (YAML/TOML
 validation, whitespace, ruff, mypy) and mirrors what the git commit hook enforces.
+When interrogate is enabled, the job also checks docstring coverage. A final `CI OK`
+job aggregates the results, so branch protection only needs that one required check.
 
 ### pre-commit hooks
 
@@ -220,7 +227,7 @@ validation, whitespace, ruff, mypy) and mirrors what the git commit hook enforce
 | `check-yaml` | Validates YAML syntax |
 | `end-of-file-fixer` | Ensures every file ends with a single newline |
 | `trailing-whitespace` | Strips trailing whitespace |
-| `ruff-lint` (local) | Runs `uv run ruff check --fix`; fails if unfixable violations remain |
+| `ruff-check` (local) | Runs `uv run ruff check --fix`; fails if anything was fixed or unfixable violations remain |
 | `ruff-format` (local) | Runs `uv run ruff format` |
 | `mypy` (local) | Runs `uv run mypy` against the full project (optional) |
 
@@ -252,6 +259,7 @@ Core workflows included by default:
 
 - `ci.yml`
 - `publish.yml`
+- `.github/dependabot.yml` (monthly, grouped updates for GitHub Actions and `uv.lock`)
 
 Optional workflows:
 
@@ -262,25 +270,33 @@ Optional workflows:
 
 | Job | What it does |
 | --- | --- |
-| `quality` | Installs dev dependencies, then runs `pre-commit run --all-files` (skipped if `.pre-commit-config.yaml` is absent) |
-| `test` | Matrix across all supported Python versions (from the chosen minimum up to 3.14); runs `make test` on each (skipped if `tests/` is empty or absent); `fail-fast: false` so every version is reported; uploads `coverage.xml` to Codecov (skipped if the file was not generated) |
+| `quality` | Installs dev dependencies, then runs `pre-commit run --all-files` (plus `interrogate` when enabled) |
+| `test` | Matrix across all supported Python versions (from the chosen minimum up to 3.14); runs `make test` on each; `fail-fast: false` so every version is reported; uploads `coverage.xml` to Codecov (fork PRs don't fail when the token is unavailable) |
+| `ci-ok` | Aggregates the jobs above into a single status for branch protection |
 
 Both jobs use `astral-sh/setup-uv` (with caching) and a `concurrency` group that
 cancels superseded runs on the same branch, saving CI minutes on rapid pushes.
+Workflows default to read-only `GITHUB_TOKEN` permissions and don't persist checkout
+credentials unless they need to push.
 
 #### `docs.yml` (optional) — runs on published releases or manual dispatch
 
 This workflow resolves a release tag, checks out that tag, installs the `docs` group,
-and deploys versioned docs to GitHub Pages via `mike`.
+and deploys versioned docs to GitHub Pages via `mike`. Deploys are queued rather
+than cancelled, so concurrent releases can't interrupt a push to `gh-pages`. The
+MkDocs build runs in `strict` mode, so broken internal links fail the deploy.
 
 `links-md.yml` (optional) checks Markdown links on docs/README changes with lychee.
-`links-html-scheduled.yml` (optional) checks links in rendered `gh-pages` HTML on a schedule.
+`links-html-scheduled.yml` (optional) checks links in the rendered `gh-pages` HTML
+weekly and opens an issue with the report when links are broken. Badge, PyPI and
+Pages URLs that only exist after the first release are excluded in `.lychee.toml`.
 
 #### `publish.yml` — runs when a GitHub release is published
 
 | Job | What it does |
 | --- | --- |
-| `pypi-publish` | Checks out the repo, builds the wheel and sdist with `uv build`, and publishes to PyPI using **trusted publishing** (OIDC) — no `PYPI_TOKEN` secret is required |
+| `build` | Builds the wheel and sdist with `uv build` and smoke-tests that the wheel imports |
+| `publish` | Publishes the built artifacts with `pypa/gh-action-pypi-publish` using **trusted publishing** (OIDC) — no `PYPI_TOKEN` secret is required — and uploads PEP 740 attestations |
 
 > **Note:** Trusted publishing requires a one-time configuration on PyPI's side
 > before the first release. See [PyPI trusted publishing setup](#pypi-trusted-publishing-setup) below.
