@@ -271,7 +271,7 @@ Optional workflows:
 | Job | What it does |
 | --- | --- |
 | `quality` | Installs dev dependencies, then runs `pre-commit run --all-files` (plus `interrogate` when enabled) |
-| `test` | Matrix across all supported Python versions (from the chosen minimum up to 3.14); runs `make test` on each; `fail-fast: false` so every version is reported; uploads `coverage.xml` to Codecov (fork PRs don't fail when the token is unavailable) |
+| `test` | Matrix across all supported Python versions (from the chosen minimum up to 3.14); runs `make test` on each; `fail-fast: false` so every version is reported; uploads `coverage.xml` to Codecov (fork and Dependabot PRs don't fail when the token is unavailable) |
 | `ci-ok` | Aggregates the jobs above into a single status for branch protection |
 
 Both jobs use `astral-sh/setup-uv` (with caching) and a `concurrency` group that
