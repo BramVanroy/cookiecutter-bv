@@ -13,5 +13,7 @@ updates:
     schedule:
       interval: monthly
     groups:
-      dev-dependencies:
-        dependency-type: development
+      # One group for all packages: every update touches uv.lock, so separate
+      # PRs would conflict with each other after the first merge.
+      uv:
+        patterns: ["*"]
